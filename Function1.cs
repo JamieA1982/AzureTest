@@ -10,24 +10,30 @@ using Newtonsoft.Json;
 
 namespace AzureFuncTestProject
 {
-    public static class Function1
+  public static class Function1
+  {
+    [FunctionName("Function1")]
+    public static async Task<IActionResult> Run(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
+        [Queue("TestMsgQueue")] IAsyncCollector<msg> msgQueue,
+        ILogger log)
     {
-        [FunctionName("Function1")]
-        public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
-            ILogger log)
-        {
-            log.LogInformation("C# HTTP trigger function processed a request.");
+      log.LogInformation("C# HTTP trigger function processed a request.");
 
-            string name = req.Query["name"];
+      string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+      var msg = JsonConvert.DeserializeObject<msg>(requestBody);
+      await msgQueue.AddAsync(msg);
 
-            string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-            dynamic data = JsonConvert.DeserializeObject(requestBody);
-            name = name ?? data?.name;
-
-            return name != null
-                ? (ActionResult)new OkObjectResult($"Hello, {name}")
-                : new BadRequestObjectResult("Please pass a name on the query string or in the request body");
-        }
+      return msg != null
+          ? (ActionResult)new OkObjectResult($"Message Sent To, {msg.to}")
+          : new BadRequestObjectResult("Crap data");
     }
+  }
+
+  public class msg
+  {
+    public string from;
+    public string to;
+    public string message;
+  }
 }
